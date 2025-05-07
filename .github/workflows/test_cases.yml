@@ -1,0 +1,108 @@
+name: Modular Azure Infra Deployment
+
+on:
+  workflow_dispatch:
+    inputs:
+      deploy_step:
+        description: 'Choose the step to deploy'
+        required: true
+        type: choice
+        options:
+          - Deploy Servers in Both Regions
+          - Deploy Database with Permissions
+          - Deploy Server with Databases
+          - Apply Lock
+          - Deploy Server with HA Enabled
+          - Deploy Server with BYOK Enabled
+          - Deploy Server in Existing RG
+          - Deploy Server with Version 16 (Future)
+          - Deploy Server with Virtual Endpoints (Future)
+          - Deploy 2 Read-Replicas
+
+jobs:
+  setup:
+    name: Terraform Setup
+    runs-on: ubuntu-latest
+    outputs:
+      selected-step: ${{ github.event.inputs.deploy_step }}
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.6.6
+
+      - name: Terraform Init
+        run: terraform init
+
+  deploy:
+    name: Execute Deployment
+    needs: setup
+    runs-on: ubuntu-latest
+    env:
+      ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Select and Run Terraform Plan/Apply
+        run: |
+          case "${{ needs.setup.outputs.selected-step }}" in
+
+            "Deploy Servers in Both Regions")
+              cd deployments/servers-multi-region
+              terraform apply -auto-approve
+              ;;
+
+            "Deploy Database with Permissions")
+              cd deployments/database-with-permissions
+              terraform apply -auto-approve
+              ;;
+
+            "Deploy Server with Databases")
+              cd deployments/server-with-db
+              terraform apply -auto-approve
+              ;;
+
+            "Apply Lock")
+              cd deployments/locking
+              terraform apply -auto-approve
+              ;;
+
+            "Deploy Server with HA Enabled")
+              cd deployments/server-ha
+              terraform apply -auto-approve
+              ;;
+
+            "Deploy Server with BYOK Enabled")
+              cd deployments/server-byok
+              terraform apply -auto-approve
+              ;;
+
+            "Deploy Server in Existing RG")
+              cd deployments/server-existing-rg
+              terraform apply -auto-approve
+              ;;
+
+            "Deploy Server with Version 16 (Future)")
+              echo "Version 16 deployment not yet implemented."
+              ;;
+
+            "Deploy Server with Virtual Endpoints (Future)")
+              echo "Virtual Endpoints deployment not yet implemented."
+              ;;
+
+            "Deploy 2 Read-Replicas")
+              cd deployments/server-read-replicas
+              terraform apply -auto-approve
+              ;;
+
+            *)
+              echo "Invalid option."
+              exit 1
+              ;;
+          esac
